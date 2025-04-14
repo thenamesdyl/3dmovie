@@ -1,3 +1,3 @@
 # 3dmovie
 
-Using https://afk.ai to build a browser movie
+Using https://afk.ai to build a browser short film
