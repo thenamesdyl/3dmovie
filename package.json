@@ -1,0 +1,22 @@
+{
+    "name": "3dmovie",
+    "version": "1.0.0",
+    "description": "A Three.js vanilla JS project",
+    "source": "index.html",
+    "scripts": {
+        "dev": "parcel",
+        "build": "parcel build",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "threejs",
+        "javascript",
+        "vanilla-js",
+        "3d"
+    ],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "parcel": "^2.14.4"
+    }
+}
