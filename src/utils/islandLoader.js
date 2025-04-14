@@ -1,0 +1,108 @@
+import * as THREE from 'three';
+import { loadGLBModel } from './glbLoader.js';
+
+/**
+ * Loads a GLB model and enhances its visibility by brightening materials
+ * @param {THREE.Object3D} parent - Parent object to add the model to
+ * @param {Object} options - Model loading options
+ * @param {Function} onComplete - Optional callback when model loading completes
+ * @returns {Promise} Promise that resolves when the model is loaded
+ */
+export function loadBrightenedModel(parent, options, onComplete) {
+    // Ensure we have valid options
+    if (!options || !options.modelUrl) {
+        console.error('Invalid options provided to loadBrightenedModel. Must include modelUrl.');
+        if (onComplete) onComplete(false);
+        return;
+    }
+
+    // Use the original loadGLBModel with original options
+    return loadGLBModel(parent, {
+        modelId: options.modelId || `brightened_${Date.now()}`,
+        modelUrl: options.modelUrl,
+        scaleValue: options.scaleValue || 1.0,
+        position: options.position || [0, 0, 0],
+        rotation: options.rotation || [0, 0, 0]
+    }, (success) => {
+        if (success) {
+            // Apply brightness enhancement to all meshes after successful load
+            parent.traverse(child => {
+                if (child.isMesh && child.material) {
+                    // Disable frustum culling to ensure visibility from any distance
+                    child.frustumCulled = false;
+
+                    // For LOD objects, disable frustum culling on all levels
+                    if (child.isLOD) {
+                        child.levels.forEach(level => {
+                            if (level.object) {
+                                level.object.frustumCulled = false;
+                                level.object.traverse(lodChild => {
+                                    if (lodChild.isMesh) {
+                                        lodChild.frustumCulled = false;
+                                    }
+                                });
+                            }
+                        });
+                    }
+
+                    // Handle both single materials and arrays
+                    const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+                    materials.forEach(material => {
+                        // Clone the material to avoid modifying shared materials
+                        const newMaterial = material.clone();
+
+                        // Set far clipping distance to maximum
+                        newMaterial.depthTest = true;
+                        newMaterial.depthWrite = true;
+
+                        // Ensure no fog affects this model
+                        newMaterial.fog = false;
+
+                        // Directly set a much brighter color (forced approach)
+                        if (newMaterial.map) {
+                            // If there's a texture, we can't just change the color.
+                            // Instead, we'll create a bright emissive glow
+                            newMaterial.emissive = new THREE.Color(0.8, 0.8, 0.8);
+                            newMaterial.emissiveIntensity = 0.7;
+                            newMaterial.emissiveMap = newMaterial.map;
+                        } else if (newMaterial.color) {
+                            // For materials without textures, maximize brightness
+                            const baseColor = newMaterial.color.clone();
+                            // Amplify each RGB channel while preserving some of the original color
+                            newMaterial.color.setRGB(
+                                Math.min(baseColor.r * 3, 1.0),
+                                Math.min(baseColor.g * 3, 1.0),
+                                Math.min(baseColor.b * 3, 1.0)
+                            );
+                        }
+
+                        // Apply the modified material
+                        if (Array.isArray(child.material)) {
+                            // Replace in the array at the same index
+                            child.material[materials.indexOf(material)] = newMaterial;
+                        } else {
+                            child.material = newMaterial;
+                        }
+                    });
+                }
+            });
+
+            // For the parent group and its direct children, disable frustum culling
+            parent.frustumCulled = false;
+            parent.children.forEach(child => {
+                child.frustumCulled = false;
+
+                // Handle LOD specifically
+                if (child.isLOD) {
+                    child.levels.forEach(level => {
+                        if (level.object) level.object.frustumCulled = false;
+                    });
+                }
+            });
+        }
+
+        // Call the completion callback
+        if (onComplete) onComplete(success);
+    });
+} 
